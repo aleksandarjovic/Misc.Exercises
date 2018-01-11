@@ -1,0 +1,52 @@
+##Martingale doubling system simulation
+
+#Simulation will assume unit bet=1 for convenience
+
+#N: number of trials we can play (Time), must be set N<infinity
+#H0: House advantage, *in percentage*, is 0 by default (fair game: p=q). +ve value means player is at disadvantage.
+#cap: the casino's bet limit, by default no cap, note, if the player caps out, they will reset at 1 after they win regardless of loss of profit (again not perfect), ideally, use a power of 2
+#credit: amount of bank roll player is willing to put at stake, by default no limit
+#give.up: the system ultimately fails from cap, if the player reaches the cap, they give up by default and try again at 1
+#if give.up==F, we'll pretend they'll keep betting max until they even out, then when they win and reach the +1, the bet returns to 1
+
+MGsystem.sim=function(N,H0=0,cap=Inf,credit=Inf,give.up=T){
+  
+  if (N<1) stop('Must play more than 0 coups')
+  if (N!=floor(N)) { #N element of Naturals
+    warning("non-integer N rounded down")
+    N=floor(N)
+  }
+  net=rep(0,N+1)        #allocating memory for efficiency, net will track our profit, starting at N_0=0; to be plotted
+  RNG=runif(N+1)     #the outcome of all games will be stored since it is random anyway; Uniform(0,1) roll, first roll is irrelevant at time 0
+  moneyleft=credit      #0 is the absorbing barrier, if credit left as infinite this will never "die"
+  
+  if (abs(H0)>100) stop('House advantage is between 100 and -100 %')
+  p=(-H0/100+1)/2      #p=P(player wins)
+  unitbet=1
+  capslost=0           #for those who won't quit, give.up==T
+  
+  for (i in 2:(N+1)){              #our N coups, N[1]=N_0=0
+    if (moneyleft<0) {           #checks if we've lost all our money
+      plot(net[1:i-1], main='Time Series of Net Winnings', ylab='Profit (in unit bets)', xlab='Coup at time N', type='l')
+      return(cat("You went broke at time N=", i-1, ".\nSee time plot"))}
+    if (RNG[i]<(1-p)) {       #rolling the RNG and comparing it to chance of winning; this is the lose scenario
+      net[i]=net[i-1]-unitbet
+      moneyleft=moneyleft-unitbet
+      if (unitbet<=cap) {        #checking if we can up our bet
+        unitbet=2*unitbet
+        if (unitbet>cap) unitbet=cap
+      }
+      else if (give.up) unitbet=1
+      if (!give.up) capslost=capslost+1
+    }
+    else {                       #when RNG[i]>=(1-p), winning
+      net[i]=net[i-1]+unitbet
+      moneyleft=moneyleft+unitbet
+      if (capslost>0) capslost=capslost-1    #for bold play, keep max betting 'til you recoup your losses, only possible if give.up was set to F
+      else unitbet=1                         # after you win, put the bet back to 1
+    }
+  }
+  if (credit==Inf) cat("Your profit is", net[N], ".\n")
+  else cat("You started with", credit, "and ended with", moneyleft, ".\n")
+  plot(net, main='Time Series of Net Winnings', ylab='Profit (in unit bets)', xlab='Coup at time N', type='l')
+}
